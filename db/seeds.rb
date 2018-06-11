@@ -1,56 +1,68 @@
 require 'csv'
 
-def create_products
-  dir_name = "#{Rails.root}/tmp/seed/"
-  csv_file_path = "#{dir_name}products.csv"
-  csv_header = %w[ name ]
+class TestDataImporter
+  START_DATE = '1-06-2018'.to_date
+  END_DATE   = '30-06-2018'.to_date
 
-  File.delete(csv_file_path) if File.exists?(csv_file_path)
-  FileUtils::mkdir_p(dir_name) unless File.exists?(dir_name)
+  DIR_NAME = "#{Rails.root}/tmp/seed/"
 
-  CSV.open(csv_file_path, 'wb') do |csv|
-    csv << csv_header
+  CSV_PRODUCTS_PATH = "#{DIR_NAME}products.csv"
+  CSV_RATINGS_PATH  = "#{DIR_NAME}ratings.csv"
 
-    1_000_000.times do |index|
-      csv << [FFaker::Product.product_name]
-      puts "#{index} of 1_000_000" if (index % 10_000).zero?
-    end
+  CSV_PRODUCTS_HEADER = %w[ name ]
+  CSV_RATINGS_HEADER  = %w[ product_id avg_rating rate_count analyse_date ]
+
+  def initialize
+    FileUtils::mkdir_p(DIR_NAME) unless File.exists?(DIR_NAME)
+    cleanup
   end
 
-  ::Product.copy_from csv_file_path
-  File.delete(csv_file_path) if File.exists?(csv_file_path)
-end
+  def call
+    create_products
+    create_ratings
+    cleanup
+  end
 
-def create_ratings
-  dir_name = "#{Rails.root}/tmp/seed/"
-  csv_file_path = "#{dir_name}ratings.csv"
-  csv_header = %w[ product_id avg_rating rate_count analyse_date ]
-  start_date = '1-06-2018'.to_date
-  end_date = '7-06-2018'.to_date
+  private
 
-  File.delete(csv_file_path) if File.exists?(csv_file_path)
-  FileUtils::mkdir_p(dir_name) unless File.exists?(dir_name)
+  def create_products
+    CSV.open(CSV_PRODUCTS_PATH, 'wb') do |csv|
+      csv << CSV_PRODUCTS_HEADER
 
-  CSV.open(csv_file_path, 'wb') do |csv|
-    csv << csv_header
-
-    (start_date..end_date).each do |date|
-      1_000_000.times do |product_id|
-        csv << [
-          product_id,
-          rand(0.0..5.0).round(2),
-          rand(100),
-          date
-        ]
-
-        puts "#{date}: -- #{product_id} of 1_000_000" if (product_id % 10_000).zero?
+      1_000_000.times do |index|
+        csv << [FFaker::Product.product_name]
+        puts "#{index} of 1_000_000" if (index % 10_000).zero?
       end
     end
+
+    ::Product.copy_from CSV_PRODUCTS_PATH
   end
 
-  ::Rating.copy_from csv_file_path
-  File.delete(csv_file_path) if File.exists?(csv_file_path)
+  def create_ratings
+    CSV.open(CSV_RATINGS_PATH, 'wb') do |csv|
+      csv << CSV_RATINGS_HEADER
+
+      (START_DATE..END_DATE).each do |date|
+        1_000_000.times do |product_id|
+          csv << [
+            product_id,
+            rand(0.0..5.0).round(2),
+            rand(100),
+            date
+          ]
+
+          puts "#{date}: -- #{product_id} of 1_000_000" if (product_id % 10_000).zero?
+        end
+      end
+    end
+
+    ::Rating.copy_from CSV_RATINGS_PATH
+  end
+
+  def cleanup
+    File.delete(CSV_PRODUCTS_PATH) if File.exists?(CSV_PRODUCTS_PATH)
+    File.delete(CSV_RATINGS_PATH)  if File.exists?(CSV_RATINGS_PATH)
+  end
 end
 
-create_products
-create_ratings
+TestDataImporter.new.call
